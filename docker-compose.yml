@@ -1,0 +1,17 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: postgres-creator-sync-db
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: root123
+      POSTGRES_DB: creator_sync_db
+    volumes:
+      - /home/edubarreira1212/database-volumes/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
