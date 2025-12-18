@@ -7,10 +7,222 @@ datasource db {
   provider = "postgresql"
 }
 
+enum Platform {
+  YOUTUBE
+  INSTAGRAM
+  FACEBOOK
+  TIKTOK
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+}
+
+enum Visibility {
+  PUBLIC
+  UNLISTED
+  PRIVATE
+}
+
+enum JobType {
+  PUBLISH_POST
+  REFRESH_TOKENS
+}
+
+enum JobStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
+  CANCELED
+}
+
+enum PublishStatus {
+  DRAFT
+  QUEUED
+  PROCESSING
+  PARTIALLY_PUBLISHED
+  PUBLISHED
+  FAILED
+}
+
+enum DestinationStatus {
+  PENDING
+  UPLOADING
+  PROCESSING
+  PUBLISHED
+  FAILED
+}
+
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
   name      String?
+  avatarUrl String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  accounts  ConnectedAccount[]
+  media     MediaAsset[]
+  posts     Post[]
+  jobs      Job[]
+}
+
+model ConnectedAccount {
+  id        String   @id @default(cuid())
+  userId    String
+  platform  Platform
+
+  // IDs externos (útil p/ IG/FB/YT/TikTok)
+  externalUserId     String?
+  externalUsername   String?
+  externalPageId     String?
+  externalIgAccountId String?
+
+  accessToken        String?
+  refreshToken       String?
+  tokenType          String?
+  scope              String?
+  expiresAt          DateTime?
+
+  isActive  Boolean  @default(true)
+  lastSyncedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, platform])
+  @@index([platform])
+}
+
+model MediaAsset {
+  id       String    @id @default(cuid())
+  userId   String
+  type     MediaType
+
+  storageKey  String
+  url         String?
+  mimeType    String?
+  sizeBytes   BigInt?
+
+  originalFilename String?
+  width            Int?
+  height           Int?
+  durationSeconds  Int? // vídeo
+  checksum         String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  posts Post[]
+
+  @@index([userId, createdAt])
+  @@index([type])
+}
+
+model Post {
+  id          String        @id @default(cuid())
+  userId      String
+  mediaAssetId String
+
+  title       String?
+  description String?
+  hashtags    String?
+  visibility  Visibility    @default(PUBLIC)
+
+  status      PublishStatus @default(DRAFT)
+
+  scheduledFor DateTime?
+  publishedAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mediaAsset MediaAsset @relation(fields: [mediaAssetId], references: [id], onDelete: Restrict)
+
+  destinations PostDestination[]
+  jobs         Job[]
+
+  @@index([userId, createdAt])
+  @@index([status])
+  @@index([scheduledFor])
+}
+
+model PostDestination {
+  id        String     @id @default(cuid())
+  postId    String
+  platform  Platform
+
+  status    DestinationStatus @default(PENDING)
+
+  externalPostId  String?
+  externalMediaId String?
+
+  platformTitle       String?
+  platformDescription String?
+  platformVisibility  Visibility?
+
+  attempts    Int      @default(0)
+  lastError   String?
+  lastErrorAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, platform])
+  @@index([platform, status])
+  @@index([status])
+}
+
+model Job {
+  id        String    @id @default(cuid())
+  userId    String
+  postId    String?
+
+  type      JobType
+  status    JobStatus @default(PENDING)
+
+  payload   Json?
+
+  runAt     DateTime?
+  startedAt DateTime?
+  finishedAt DateTime?
+
+  attempts  Int       @default(0)
+  maxAttempts Int     @default(5)
+
+  lastError String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post Post? @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  logs JobLog[]
+
+  @@index([status, runAt])
+  @@index([type, status])
+  @@index([userId, createdAt])
+}
+
+model JobLog {
+  id     String   @id @default(cuid())
+  jobId  String
+  level  String   // "info" | "warn" | "error"
+  message String
+  data   Json?
+
+  createdAt DateTime @default(now())
+
+  job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId, createdAt])
 }
