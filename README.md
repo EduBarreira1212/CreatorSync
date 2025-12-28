@@ -1,48 +1,75 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Creator Sync MVP Backend
 
-## Getting Started
+Backend MVP em Next.js (App Router) com Prisma, BullMQ e upload de midia.
 
-First, run the development server:
+## Requisitos
+
+- Node.js 20+
+- PostgreSQL
+- Redis
+- AWS S3 (opcional; use `LOCAL_STORAGE=true` para salvar em disco)
+
+## Configuracao rapida
+
+```bash
+cp .env.example .env
+npm install
+npm run prisma:generate
+npm run prisma:migrate -- --name init
+```
+
+## Rodar a API
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Rodar o worker
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm run worker:publish
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Variaveis de ambiente
 
-## Prisma ORM
+- `DATABASE_URL`
+- `REDIS_URL`
+- `LOCAL_STORAGE` ("true" para salvar em `/tmp/uploads`)
+- `S3_BUCKET`
+- `AWS_REGION`
+- `AWS_ACCESS_KEY_ID`
+- `AWS_SECRET_ACCESS_KEY`
+- `AWS_SESSION_TOKEN` (opcional)
 
-Prisma is configured with Prisma 7 using `prisma.config.ts`.
+## Exemplos de request
 
-1. Copy `.env.example` to `.env` and set `DATABASE_URL` (defaults to PostgreSQL).
-2. Adjust your models in `prisma/schema.prisma`.
-3. Generate the client after changes: `npm run prisma:generate` (requires `DATABASE_URL` to be set).
-4. Create or update the database schema: `npm run prisma:migrate -- --name init`.
-5. Explore data in the browser: `npm run prisma:studio`.
+### POST /api/media
 
-The Prisma client is reused via `src/lib/prisma.ts`. Migrations and the schema live in the `prisma/` folder and are referenced from `prisma.config.ts`.
+```bash
+curl -X POST http://localhost:3000/api/media \
+  -H "x-user-id: user_123" \
+  -F "file=@/path/to/file.jpg"
+```
 
-## Learn More
+### POST /api/posts
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+curl -X POST http://localhost:3000/api/posts \
+  -H "Content-Type: application/json" \
+  -H "x-user-id: user_123" \
+  -d '{
+    "mediaAssetId": "MEDIA_ASSET_ID",
+    "title": "Meu post",
+    "description": "Descricao",
+    "hashtags": "#mvp #creator",
+    "visibility": "PUBLIC",
+    "platforms": ["YOUTUBE", "INSTAGRAM"]
+  }'
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### POST /api/posts/:id/publish
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+curl -X POST http://localhost:3000/api/posts/POST_ID/publish \
+  -H "x-user-id: user_123"
+```
