@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/prisma';
-import { HttpError, requireUserId } from '@/lib/auth';
+import { requireUserId } from '@/lib/auth';
+import { errorResponse, handleApiError } from '@/lib/api';
 
 export const runtime = 'nodejs';
 
@@ -15,7 +16,33 @@ const createPostSchema = z.object({
   hashtags: z.string().min(1).optional(),
   visibility: visibilitySchema.optional(),
   platforms: z.array(platformSchema).default([]),
+  scheduledFor: z.string().datetime().optional(),
 });
+
+const listPostsSchema = z.object({
+  take: z.coerce.number().int().min(1).max(50).default(20),
+});
+
+export const GET = async (request: NextRequest) => {
+  try {
+    const userId = requireUserId(request);
+    const { searchParams } = new URL(request.url);
+    const payload = listPostsSchema.parse({
+      take: searchParams.get('take') ?? undefined,
+    });
+
+    const posts = await db.post.findMany({
+      where: { userId },
+      include: { destinations: true },
+      orderBy: { createdAt: 'desc' },
+      take: payload.take,
+    });
+
+    return NextResponse.json(posts, { status: 200 });
+  } catch (error) {
+    return handleApiError(error, 'Failed to list posts');
+  }
+};
 
 export const POST = async (request: NextRequest) => {
   try {
@@ -31,10 +58,7 @@ export const POST = async (request: NextRequest) => {
     });
 
     if (!mediaAsset) {
-      return NextResponse.json(
-        { error: 'Media asset not found' },
-        { status: 404 }
-      );
+      return errorResponse(404, 'NOT_FOUND', 'Media asset not found');
     }
 
     const destinations = payload.platforms.map((platform) => ({ platform }));
@@ -47,6 +71,9 @@ export const POST = async (request: NextRequest) => {
         description: payload.description ?? null,
         hashtags: payload.hashtags ?? null,
         ...(payload.visibility ? { visibility: payload.visibility } : {}),
+        ...(payload.scheduledFor
+          ? { scheduledFor: new Date(payload.scheduledFor) }
+          : {}),
         ...(destinations.length
           ? { destinations: { create: destinations } }
           : {}),
@@ -56,21 +83,6 @@ export const POST = async (request: NextRequest) => {
 
     return NextResponse.json(post, { status: 201 });
   } catch (error) {
-    if (error instanceof HttpError) {
-      return NextResponse.json({ error: error.message }, { status: error.status });
-    }
-
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Invalid request payload', details: error.flatten() },
-        { status: 400 }
-      );
-    }
-
-    console.error('Failed to create post', error);
-    return NextResponse.json(
-      { error: 'Failed to create post' },
-      { status: 500 }
-    );
+    return handleApiError(error, 'Failed to create post');
   }
 };

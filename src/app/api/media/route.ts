@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { MediaType } from '@prisma/client';
 import { db } from '@/lib/prisma';
-import { HttpError, requireUserId } from '@/lib/auth';
+import { requireUserId } from '@/lib/auth';
 import { uploadToStorage } from '@/lib/storage';
+import { errorResponse, handleApiError } from '@/lib/api';
 
 export const runtime = 'nodejs';
 
@@ -16,17 +17,15 @@ export const POST = async (request: NextRequest) => {
     const file = formData.get('file');
 
     if (!file || !(file instanceof File)) {
-      return NextResponse.json(
-        { error: 'Missing file field' },
-        { status: 400 }
-      );
+      return errorResponse(400, 'BAD_REQUEST', 'Missing file field');
     }
 
     const mimeType = file.type || 'application/octet-stream';
     if (!isAcceptedMimeType(mimeType)) {
-      return NextResponse.json(
-        { error: 'Only image or video uploads are supported' },
-        { status: 400 }
+      return errorResponse(
+        400,
+        'BAD_REQUEST',
+        'Only image or video uploads are supported'
       );
     }
 
@@ -59,14 +58,6 @@ export const POST = async (request: NextRequest) => {
       { status: 201 }
     );
   } catch (error) {
-    if (error instanceof HttpError) {
-      return NextResponse.json({ error: error.message }, { status: error.status });
-    }
-
-    console.error('Failed to upload media', error);
-    return NextResponse.json(
-      { error: 'Failed to upload media' },
-      { status: 500 }
-    );
+    return handleApiError(error, 'Failed to upload media');
   }
 };

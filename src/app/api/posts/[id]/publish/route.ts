@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { JobStatus, JobType, PublishStatus } from '@prisma/client';
 import { db } from '@/lib/prisma';
-import { HttpError, requireUserId } from '@/lib/auth';
+import { requireUserId } from '@/lib/auth';
 import { publishQueue } from '@/lib/queue';
+import { errorResponse, handleApiError } from '@/lib/api';
 
 export const runtime = 'nodejs';
 
@@ -21,17 +22,20 @@ export const POST = async (request: NextRequest, { params }: RouteParams) => {
     });
 
     if (!post) {
-      return NextResponse.json({ error: 'Post not found' }, { status: 404 });
+      return errorResponse(404, 'NOT_FOUND', 'Post not found');
     }
 
     if (post.destinations.length === 0) {
-      return NextResponse.json(
-        { error: 'Post has no destinations to publish' },
-        { status: 400 }
+      return errorResponse(
+        400,
+        'BAD_REQUEST',
+        'Post has no destinations to publish'
       );
     }
 
     const platforms = post.destinations.map((destination) => destination.platform);
+    const runAt = post.scheduledFor ?? null;
+    const delay = runAt ? Math.max(runAt.getTime() - Date.now(), 0) : 0;
 
     const job = await db.job.create({
       data: {
@@ -40,6 +44,7 @@ export const POST = async (request: NextRequest, { params }: RouteParams) => {
         type: JobType.PUBLISH_POST,
         status: JobStatus.PENDING,
         payload: { postId: post.id, platforms },
+        ...(runAt ? { runAt } : {}),
       },
     });
 
@@ -54,6 +59,7 @@ export const POST = async (request: NextRequest, { params }: RouteParams) => {
       {
         attempts: job.maxAttempts,
         backoff: { type: 'exponential', delay: 5000 },
+        ...(runAt ? { delay } : {}),
       }
     );
 
@@ -62,14 +68,6 @@ export const POST = async (request: NextRequest, { params }: RouteParams) => {
       { status: 202 }
     );
   } catch (error) {
-    if (error instanceof HttpError) {
-      return NextResponse.json({ error: error.message }, { status: error.status });
-    }
-
-    console.error('Failed to enqueue publish job', error);
-    return NextResponse.json(
-      { error: 'Failed to enqueue publish job' },
-      { status: 500 }
-    );
+    return handleApiError(error, 'Failed to enqueue publish job');
   }
 };
