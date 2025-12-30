@@ -7,6 +7,7 @@ import {
   PublishStatus,
 } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
+import { getPlatformAdapter } from '../src/platforms';
 
 const redisUrl = process.env.REDIS_URL;
 if (!redisUrl) {
@@ -15,8 +16,6 @@ if (!redisUrl) {
 
 const connection = new IORedis(redisUrl, { maxRetriesPerRequest: null });
 const prisma = new PrismaClient();
-
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const logJob = async (
   jobId: string,
@@ -40,7 +39,7 @@ const worker = new Worker(
     const { jobId } = bullJob.data as { jobId: string };
     const jobRecord = await prisma.job.findUnique({
       where: { id: jobId },
-      include: { post: { include: { destinations: true } } },
+      include: { post: { include: { destinations: true, mediaAsset: true } } },
     });
 
     if (!jobRecord || !jobRecord.post) {
@@ -51,6 +50,9 @@ const worker = new Worker(
     if (post.destinations.length === 0) {
       throw new Error('Post has no destinations to publish');
     }
+    if (!post.mediaAsset) {
+      throw new Error('Post has no media asset to publish');
+    }
 
     await prisma.job.update({
       where: { id: jobId },
@@ -59,6 +61,11 @@ const worker = new Worker(
         startedAt: new Date(),
         attempts: { increment: 1 },
       },
+    });
+
+    await prisma.post.update({
+      where: { id: post.id },
+      data: { status: PublishStatus.PROCESSING },
     });
 
     await logJob(jobId, 'info', 'Starting publish job', {
@@ -75,23 +82,32 @@ const worker = new Worker(
           data: {
             status: DestinationStatus.UPLOADING,
             attempts: { increment: 1 },
+            lastError: null,
+            lastErrorAt: null,
           },
         });
         await logJob(jobId, 'info', `Uploading to ${destination.platform}`);
-        await delay(300);
 
         await prisma.postDestination.update({
           where: { id: destination.id },
           data: { status: DestinationStatus.PROCESSING },
         });
         await logJob(jobId, 'info', `Processing ${destination.platform}`);
-        await delay(500);
+
+        const adapter = getPlatformAdapter(destination.platform);
+        const result = await adapter.publish({
+          post,
+          destination,
+          mediaAsset: post.mediaAsset,
+          userId: post.userId,
+        });
 
         await prisma.postDestination.update({
           where: { id: destination.id },
           data: {
             status: DestinationStatus.PUBLISHED,
-            externalPostId: `mock_${destination.platform.toLowerCase()}_${Date.now()}`,
+            externalPostId: result.externalPostId,
+            externalMediaId: result.externalMediaId ?? null,
           },
         });
         await logJob(jobId, 'info', `Published to ${destination.platform}`);
