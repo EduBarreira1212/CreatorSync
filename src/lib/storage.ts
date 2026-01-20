@@ -2,6 +2,7 @@ import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { randomUUID } from 'crypto';
 import fs from 'fs/promises';
+import fsSync from 'fs';
 import path from 'path';
 
 const LOCAL_STORAGE_DIR = '/tmp/uploads';
@@ -47,6 +48,32 @@ const getS3Client = () => {
         }
       : undefined,
   });
+};
+
+export const getStorageStream = async (storageKey: string) => {
+  if (isLocalStorageEnabled()) {
+    const source = path.join(LOCAL_STORAGE_DIR, storageKey);
+    return fsSync.createReadStream(source);
+  }
+
+  const bucket = process.env.S3_BUCKET;
+  if (!bucket) {
+    throw new Error('S3_BUCKET is required when LOCAL_STORAGE is disabled');
+  }
+
+  const client = getS3Client();
+  const response = await client.send(
+    new GetObjectCommand({
+      Bucket: bucket,
+      Key: storageKey,
+    })
+  );
+
+  if (!response.Body) {
+    throw new Error('Storage object body is empty');
+  }
+
+  return response.Body as NodeJS.ReadableStream;
 };
 
 export const uploadToStorage = async (
