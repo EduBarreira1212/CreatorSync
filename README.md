@@ -40,6 +40,11 @@ npm run worker:publish
 - `AWS_ACCESS_KEY_ID`
 - `AWS_SECRET_ACCESS_KEY`
 - `AWS_SESSION_TOKEN` (opcional)
+- `GOOGLE_CLIENT_ID`
+- `GOOGLE_CLIENT_SECRET`
+- `GOOGLE_REDIRECT_URI`
+- `OAUTH_STATE_SECRET`
+- `TOKEN_ENCRYPTION_KEY` (32 bytes base64 ou hex)
 
 ## Exemplos de request
 
@@ -71,5 +76,42 @@ curl -X POST http://localhost:3000/api/posts \
 
 ```bash
 curl -X POST http://localhost:3000/api/posts/POST_ID/publish \
+  -H "x-user-id: user_123"
+```
+
+### GET /api/posts?take=20
+
+```bash
+curl -X GET http://localhost:3000/api/posts?take=20 \
+  -H "x-user-id: user_123"
+```
+
+### GET /api/posts/:id
+
+```bash
+curl -X GET http://localhost:3000/api/posts/POST_ID \
+  -H "x-user-id: user_123"
+```
+
+### PATCH /api/posts/:id
+
+```bash
+curl -X PATCH http://localhost:3000/api/posts/POST_ID \
+  -H "Content-Type: application/json" \
+  -H "x-user-id: user_123" \
+  -d '{ \"title\": \"Novo titulo\" }'
+```
+
+### GET /api/oauth/youtube/start
+
+```bash
+curl -X GET http://localhost:3000/api/oauth/youtube/start \
+  -H "x-user-id: user_123"
+```
+
+### POST /api/oauth/youtube/refresh
+
+```bash
+curl -X POST http://localhost:3000/api/oauth/youtube/refresh \
   -H "x-user-id: user_123"
 ```
