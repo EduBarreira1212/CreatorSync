@@ -1,16 +1,16 @@
 # Creator Sync Full Stack
 
-Projeto full stack em Next.js (App Router) para centralizar upload de midia, criacao de posts, publicacao em multiplas plataformas e uma interface web para operacao do fluxo.
+Full stack project in Next.js (App Router) to centralize media uploads, post creation, multi-platform publishing, and a web UI to operate the flow.
 
-## Visao geral
+## Overview
 
-Este projeto fornece uma API e uma interface web para:
+This project provides an API and a web interface to:
 
-- Fazer upload de imagens/videos e armazenar localmente ou no S3.
-- Criar posts com destinos por plataforma (YouTube, Instagram, etc.).
-- Agendar publicacoes e enfileirar jobs de publicacao.
-- Conectar contas via OAuth (YouTube) e listar conexoes.
-- Acompanhar o status de publicacao pelo dashboard.
+- Upload images/videos and store locally or in S3.
+- Create posts with platform destinations (YouTube, Instagram, etc.).
+- Schedule publishes and enqueue publish jobs.
+- Connect accounts via OAuth (YouTube) and list connections.
+- Track publishing status in the dashboard.
 
 ## Stack
 
@@ -18,36 +18,36 @@ Este projeto fornece uma API e uma interface web para:
 - Next.js 16 (App Router)
 - Prisma + PostgreSQL
 - BullMQ + Redis
-- AWS S3 (opcional)
+- AWS S3 (optional)
 - Google OAuth (YouTube)
 
 ## Frontend (UI)
 
-Rotas principais:
+Main routes:
 
-- `/`: home com atalhos para as areas do app.
-- `/settings/connections`: conectar contas (YouTube) e ver status de tokens.
-- `/create`: upload de midia, criacao de post e disparo de publicacao.
-- `/posts`: lista de publicacoes recentes.
-- `/posts/:id`: detalhes do post e status por destino.
+- `/`: home with shortcuts to app areas.
+- `/settings/connections`: connect accounts (YouTube) and view token status.
+- `/create`: media upload, post creation, and publish trigger.
+- `/posts`: list of recent publishes.
+- `/posts/:id`: post details and per-destination status.
 
-Observacao: a UI usa o `x-user-id` salvo no `localStorage` para todas as chamadas da API.
+Note: the UI uses the `x-user-id` stored in `localStorage` for all API calls.
 
-## Fluxo principal (API + Worker)
+## Main flow (API + Worker)
 
-1. **Upload de midia**: o arquivo e enviado para `/api/media` e armazenado localmente (`/tmp/uploads`) ou no S3.
-2. **Criacao de post**: o post e criado com destinos (`platforms`) em `/api/posts`.
-3. **Publicacao**: `/api/posts/:id/publish` enfileira um job no BullMQ (com delay se houver `scheduledFor`).
-4. **Worker**: o worker consome a fila, publica em cada destino e atualiza status/erros no banco.
+1. **Media upload**: the file is sent to `/api/media` and stored locally (`/tmp/uploads`) or in S3.
+2. **Post creation**: the post is created with destinations (`platforms`) in `/api/posts`.
+3. **Publish**: `/api/posts/:id/publish` enqueues a job in BullMQ (with delay if `scheduledFor` is set).
+4. **Worker**: the worker consumes the queue, publishes to each destination, and updates status/errors in the database.
 
-## Requisitos
+## Requirements
 
 - Node.js 20+
 - PostgreSQL
 - Redis
-- AWS S3 (opcional; use `LOCAL_STORAGE=true` para salvar em disco)
+- AWS S3 (optional; use `LOCAL_STORAGE=true` to store on disk)
 
-## Configuracao rapida
+## Quick setup
 
 ```bash
 cp .env.example .env
@@ -56,60 +56,60 @@ npm run prisma:generate
 npm run prisma:migrate -- --name init
 ```
 
-### Banco e Redis
+### Database and Redis
 
-Voce pode usar seus servicos locais ou ajustar o `docker-compose.yml` para subir o PostgreSQL. O Redis nao esta incluido no compose, entao rode-o separadamente.
+You can use your local services or adjust `docker-compose.yml` to run PostgreSQL. Redis is not included in the compose file, so run it separately.
 
-## Rodar o app (frontend + API)
+## Run the app (frontend + API)
 
 ```bash
 npm run dev
 ```
 
-Acesse `http://localhost:3000` no navegador.
+Open `http://localhost:3000` in the browser.
 
-## Rodar o worker
+## Run the worker
 
-Em outro terminal:
+In another terminal:
 
 ```bash
 npm run worker:publish
 ```
 
-## Scripts uteis
+## Useful scripts
 
-- `npm run dev`: app em modo desenvolvimento
-- `npm run build`: build de producao
-- `npm run start`: executar build
-- `npm run prisma:migrate`: rodar migracoes
-- `npm run prisma:studio`: abrir Prisma Studio
-- `npm run worker:publish`: worker de publicacao
+- `npm run dev`: app in development mode
+- `npm run build`: production build
+- `npm run start`: run production build
+- `npm run prisma:migrate`: run migrations
+- `npm run prisma:studio`: open Prisma Studio
+- `npm run worker:publish`: publish worker
 
-## Autenticacao
+## Authentication
 
-A API usa um cabecalho simples `x-user-id` para identificar o usuario. Sem ele, a API retorna 401.
+The API uses a simple `x-user-id` header to identify the user. Without it, the API returns 401.
 
-## Variaveis de ambiente
+## Environment variables
 
-| Variavel | Descricao | Obrigatorio |
+| Variable | Description | Required |
 | --- | --- | --- |
-| `DATABASE_URL` | String de conexao do PostgreSQL | Sim |
-| `REDIS_URL` | String de conexao do Redis | Sim |
-| `LOCAL_STORAGE` | `true` para salvar em `/tmp/uploads` | Sim |
-| `S3_BUCKET` | Bucket S3 para uploads | Se `LOCAL_STORAGE=false` |
-| `AWS_REGION` | Regiao da AWS | Se `LOCAL_STORAGE=false` |
-| `AWS_ACCESS_KEY_ID` | Credencial AWS | Se `LOCAL_STORAGE=false` |
-| `AWS_SECRET_ACCESS_KEY` | Credencial AWS | Se `LOCAL_STORAGE=false` |
-| `AWS_SESSION_TOKEN` | Credencial temporaria | Opcional |
-| `GOOGLE_CLIENT_ID` | Cliente OAuth do Google | Sim para OAuth |
-| `GOOGLE_CLIENT_SECRET` | Segredo OAuth do Google | Sim para OAuth |
-| `GOOGLE_REDIRECT_URI` | Callback OAuth | Sim para OAuth |
-| `OAUTH_STATE_SECRET` | Segredo para state OAuth | Sim para OAuth |
-| `TOKEN_ENCRYPTION_KEY` | 32 bytes base64 ou hex | Sim |
+| `DATABASE_URL` | PostgreSQL connection string | Yes |
+| `REDIS_URL` | Redis connection string | Yes |
+| `LOCAL_STORAGE` | `true` to save in `/tmp/uploads` | Yes |
+| `S3_BUCKET` | S3 bucket for uploads | If `LOCAL_STORAGE=false` |
+| `AWS_REGION` | AWS region | If `LOCAL_STORAGE=false` |
+| `AWS_ACCESS_KEY_ID` | AWS credential | If `LOCAL_STORAGE=false` |
+| `AWS_SECRET_ACCESS_KEY` | AWS credential | If `LOCAL_STORAGE=false` |
+| `AWS_SESSION_TOKEN` | Temporary credential | Optional |
+| `GOOGLE_CLIENT_ID` | Google OAuth client | Yes for OAuth |
+| `GOOGLE_CLIENT_SECRET` | OAuth secret | Yes for OAuth |
+| `GOOGLE_REDIRECT_URI` | OAuth callback | Yes for OAuth |
+| `OAUTH_STATE_SECRET` | OAuth state secret | Yes for OAuth |
+| `TOKEN_ENCRYPTION_KEY` | 32 bytes base64 or hex | Yes |
 
 ## Endpoints
 
-### Upload de midia
+### Media upload
 
 `POST /api/media`
 
@@ -119,7 +119,7 @@ curl -X POST http://localhost:3000/api/media \
   -F "file=@/path/to/file.jpg"
 ```
 
-### Criar post
+### Create post
 
 `POST /api/posts`
 
@@ -129,8 +129,8 @@ curl -X POST http://localhost:3000/api/posts \
   -H "x-user-id: user_123" \
   -d '{
     "mediaAssetId": "MEDIA_ASSET_ID",
-    "title": "Meu post",
-    "description": "Descricao",
+    "title": "My post",
+    "description": "Description",
     "hashtags": "#mvp #creator",
     "visibility": "PUBLIC",
     "platforms": ["YOUTUBE", "INSTAGRAM"],
@@ -138,13 +138,13 @@ curl -X POST http://localhost:3000/api/posts \
   }'
 ```
 
-Valores suportados:
+Supported values:
 
 - `platforms`: `YOUTUBE`, `INSTAGRAM`, `FACEBOOK`, `TIKTOK`
 - `visibility`: `PUBLIC`, `UNLISTED`, `PRIVATE`
-- `scheduledFor`: ISO 8601 em UTC (ex.: `2026-01-30T15:00:00.000Z`)
+- `scheduledFor`: ISO 8601 UTC (e.g., `2026-01-30T15:00:00.000Z`)
 
-### Listar posts
+### List posts
 
 `GET /api/posts?take=20`
 
@@ -153,7 +153,7 @@ curl -X GET "http://localhost:3000/api/posts?take=20" \
   -H "x-user-id: user_123"
 ```
 
-### Buscar post
+### Get post
 
 `GET /api/posts/:id`
 
@@ -162,7 +162,7 @@ curl -X GET http://localhost:3000/api/posts/POST_ID \
   -H "x-user-id: user_123"
 ```
 
-### Atualizar post
+### Update post
 
 `PATCH /api/posts/:id`
 
@@ -170,10 +170,10 @@ curl -X GET http://localhost:3000/api/posts/POST_ID \
 curl -X PATCH http://localhost:3000/api/posts/POST_ID \
   -H "Content-Type: application/json" \
   -H "x-user-id: user_123" \
-  -d '{ "title": "Novo titulo" }'
+  -d '{ "title": "New title" }'
 ```
 
-### Enfileirar publicacao
+### Enqueue publish
 
 `POST /api/posts/:id/publish`
 
@@ -182,7 +182,7 @@ curl -X POST http://localhost:3000/api/posts/POST_ID/publish \
   -H "x-user-id: user_123"
 ```
 
-### Listar conexoes
+### List connections
 
 `GET /api/connections`
 
@@ -191,11 +191,11 @@ curl -X GET http://localhost:3000/api/connections \
   -H "x-user-id: user_123"
 ```
 
-### OAuth YouTube
+### YouTube OAuth
 
-- `GET /api/oauth/youtube/start`: inicia o fluxo e redireciona para o Google.
-- `GET /api/oauth/youtube/callback`: callback configurado no Google.
-- `POST /api/oauth/youtube/refresh`: renova o access token no backend.
+- `GET /api/oauth/youtube/start`: starts the flow and redirects to Google.
+- `GET /api/oauth/youtube/callback`: callback configured in Google.
+- `POST /api/oauth/youtube/refresh`: refreshes the access token server-side.
 
 ```bash
 curl -X GET http://localhost:3000/api/oauth/youtube/start \
@@ -207,8 +207,8 @@ curl -X POST http://localhost:3000/api/oauth/youtube/refresh \
   -H "x-user-id: user_123"
 ```
 
-## Observacoes
+## Notes
 
-- Quando `LOCAL_STORAGE=true`, os arquivos ficam em `/tmp/uploads`.
-- Quando `LOCAL_STORAGE=false`, o backend gera uma URL assinada do S3 (TTL de 5 minutos) para acesso.
-- O worker precisa estar rodando para publicar posts e atualizar status.
+- When `LOCAL_STORAGE=true`, files are stored in `/tmp/uploads`.
+- When `LOCAL_STORAGE=false`, the backend generates a signed S3 URL (5 minute TTL) for access.
+- The worker must be running to publish posts and update status.
